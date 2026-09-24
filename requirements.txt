@@ -1,0 +1,10 @@
+fastapi==0.115.0
+firebase-admin==6.5.0
+httpx==0.27.2
+python-dotenv==1.0.1
+pydantic==2.9.2
+
+# Only needed for running locally with `uvicorn app.main:app --reload`.
+# Vercel's own runtime serves the ASGI app directly — this dependency
+# has no effect in production but keeping it makes local dev easy.
+uvicorn==0.30.6
