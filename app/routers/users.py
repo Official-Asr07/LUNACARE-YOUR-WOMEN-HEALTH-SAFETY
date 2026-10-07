@@ -35,6 +35,10 @@ class PinUpdate(BaseModel):
     pin: str
 
 
+class PinVerify(BaseModel):
+    pin: str
+
+
 @router.put("/me")
 async def update_profile(body: ProfileUpdate, uid: str = Depends(get_current_uid)):
     db = get_firestore()
@@ -62,6 +66,20 @@ async def set_security_pin(body: PinUpdate, uid: str = Depends(get_current_uid))
         merge=True,
     )
     return {"ok": True, "configured": True}
+
+
+@router.post("/me/security-pin/verify")
+async def verify_security_pin(body: PinVerify, uid: str = Depends(get_current_uid)):
+    doc = get_firestore().collection("users").document(uid).get()
+    data = doc.to_dict() if doc.exists else {}
+    salt = data.get("securityPinSalt")
+    expected = data.get("securityPinHash")
+    if not salt or not expected or not body.pin.isdigit() or len(body.pin) < 4:
+        return {"ok": True, "valid": False}
+    actual = hashlib.pbkdf2_hmac(
+        "sha256", body.pin.encode(), salt.encode(), 120_000
+    ).hex()
+    return {"ok": True, "valid": hmac.compare_digest(actual, expected)}
 
 
 @router.put("/me/sos-contacts")
