@@ -35,7 +35,7 @@ async def health():
         "ai": {
             "key_configured": bool(settings.NVIDIA_API_KEY.strip()),
             "base_url": settings.NVIDIA_BASE_URL,
-            "model": settings.NVIDIA_MODEL,
+            "models": settings.NVIDIA_MODELS,
         },
     }
 
