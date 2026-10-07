@@ -35,6 +35,9 @@ class Settings:
     FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
     FIREBASE_CREDENTIALS_JSON: str = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
     FIREBASE_DATABASE_URL: str = os.getenv("FIREBASE_DATABASE_URL", "")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "LunaCare <onboarding@resend.dev>")
+    MONTHLY_SUMMARY_CRON_SECRET: str = os.getenv("MONTHLY_SUMMARY_CRON_SECRET", "")
 
     # CORS — set to your real domain(s) in production, comma separated
     ALLOWED_ORIGINS: list[str] = [

@@ -2,5 +2,8 @@
   "version": 2,
   "routes": [
     { "src": "/(.*)", "dest": "/api/index.py" }
+  ],
+  "crons": [
+    { "path": "/api/users/cron/monthly-summary", "schedule": "0 9 1 * *" }
   ]
 }
