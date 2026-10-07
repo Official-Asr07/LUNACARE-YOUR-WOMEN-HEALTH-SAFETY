@@ -1,6 +1,6 @@
 ---
 name: LunaCare Guardian Portal
-description: "Build and debug the LunaCare Guardian Shield, trusted-contact invites, and protected live-location flows across the frontend and FastAPI backend."
+description: "Build and debug the LunaCare SOS Shield, trusted-contact invites, and protected live-location flows across the frontend and FastAPI backend."
 tools: [read, search, execute, edit, todo]
 argument-hint: "Describe the guardian, SOS, invite, or live-location workflow to build or debug."
 user-invocable: true

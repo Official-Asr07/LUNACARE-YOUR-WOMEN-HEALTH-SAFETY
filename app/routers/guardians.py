@@ -39,6 +39,10 @@ class RedeemCodeRequest(BaseModel):
     code: str
 
 
+class ApproveRequest(BaseModel):
+    guardian_phone: str
+
+
 @router.post("/invite")
 async def invite_guardian(body: InviteRequest, uid: str = Depends(get_current_uid)):
     try:
@@ -185,12 +189,25 @@ async def pending_invites(uid: str = Depends(get_current_uid)):
 
 # ── Guardian: approve or deny an invite ──────────────────────────────────
 @router.post("/{link_id}/approve")
-async def approve_invite(link_id: str, uid: str = Depends(get_current_uid)):
+async def approve_invite(
+    link_id: str,
+    body: ApproveRequest,
+    uid: str = Depends(get_current_uid),
+):
+    phone = body.guardian_phone.strip()
+    if len("".join(filter(str.isdigit, phone))) < 7:
+        raise HTTPException(status_code=400, detail="Enter a valid guardian phone number.")
     doc_ref = _links().document(link_id)
     doc = doc_ref.get()
     if not doc.exists or doc.to_dict().get("guardianUid") != uid:
         raise HTTPException(status_code=404, detail="Invite not found.")
-    doc_ref.update({"status": "approved", "approvedAt": fa_firestore.SERVER_TIMESTAMP})
+    doc_ref.update(
+        {
+            "status": "approved",
+            "guardianPhone": phone,
+            "approvedAt": fa_firestore.SERVER_TIMESTAMP,
+        }
+    )
     return {"ok": True, "status": "approved"}
 
 
