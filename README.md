@@ -38,6 +38,8 @@ git push -u origin main
    | Name | Value |
    |---|---|
    | `NVIDIA_API_KEY` | your NVIDIA API key |
+  | `NVIDIA_BASE_URL` | `https://integrate.api.nvidia.com/v1` |
+  | `NVIDIA_MODEL` | `openai/gpt-oss-20b` |
    | `FIREBASE_CREDENTIALS_JSON` | entire service account JSON, one line |
    | `FIREBASE_DATABASE_URL` | `https://YOUR-PROJECT-default-rtdb.firebaseio.com` |
    | `ALLOWED_ORIGINS` | your Firebase Hosting URL, or `*` for now |

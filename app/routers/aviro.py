@@ -34,7 +34,7 @@ async def chat(req: ChatRequest):
     messages = [{"role": "system", "content": req.system_prompt}] + [
         {"role": m.role, "content": m.content} for m in req.history
     ]
-    reply = await nvidia_chat(messages, temperature=0.85, max_tokens=900)
+    reply = await nvidia_chat(messages, temperature=0.75, max_tokens=450)
     return ChatResponse(reply=reply or "Something unexpected happened. Please try again. 🌸")
 
 

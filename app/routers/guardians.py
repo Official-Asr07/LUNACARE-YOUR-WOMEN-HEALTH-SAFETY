@@ -6,6 +6,9 @@ guardian ever read the owner's live SOS location. Nothing is shared by
 default; every access is an explicit, revocable grant stored in
 Firestore (collection: guardian_links).
 """
+from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,6 +29,14 @@ def _links():
 class InviteRequest(BaseModel):
     guardian_email: str
     owner_name: str | None = None
+
+
+class GuardianCodeRequest(BaseModel):
+    owner_name: str | None = None
+
+
+class RedeemCodeRequest(BaseModel):
+    code: str
 
 
 @router.post("/invite")
@@ -67,11 +78,102 @@ async def invite_guardian(body: InviteRequest, uid: str = Depends(get_current_ui
     return {"ok": True, "status": "pending", "link_id": doc_ref.id}
 
 
+@router.post("/invite-code")
+async def create_guardian_code(
+    body: GuardianCodeRequest, uid: str = Depends(get_current_uid)
+):
+    """Create a short-lived, one-time code the owner can send to a trusted person."""
+    code = secrets.token_urlsafe(6).replace("-", "").replace("_", "").upper()[:8]
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    code_ref = _links().document(f"code_{hashlib.sha256(code.encode()).hexdigest()}")
+    code_ref.set(
+        {
+            "type": "guardian_code",
+            "ownerUid": uid,
+            "ownerName": body.owner_name or "",
+            "codeHash": hashlib.sha256(code.encode()).hexdigest(),
+            "status": "unused",
+            "expiresAt": expires_at,
+            "createdAt": fa_firestore.SERVER_TIMESTAMP,
+        }
+    )
+    return {"ok": True, "code": code, "expires_at": expires_at.isoformat()}
+
+
+@router.post("/redeem-code")
+async def redeem_guardian_code(
+    body: RedeemCodeRequest, uid: str = Depends(get_current_uid)
+):
+    """Turn an owner-generated code into a pending guardian approval request."""
+    normalized = body.code.strip().upper()
+    if len(normalized) < 6:
+        raise HTTPException(status_code=400, detail="Enter the complete guardian code.")
+
+    code_hash = hashlib.sha256(normalized.encode()).hexdigest()
+    code_ref = _links().document(f"code_{code_hash}")
+    code_doc = code_ref.get()
+    if not code_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian code is invalid or expired.")
+
+    code_data = code_doc.to_dict()
+    if code_data.get("type") != "guardian_code" or code_data.get("status") != "unused":
+        raise HTTPException(status_code=400, detail="Guardian code has already been used.")
+    expires_at = code_data.get("expiresAt")
+    if expires_at and expires_at < datetime.now(timezone.utc):
+        code_ref.update({"status": "expired"})
+        raise HTTPException(status_code=400, detail="Guardian code has expired. Ask the owner for a new code.")
+    if code_data.get("ownerUid") == uid:
+        raise HTTPException(status_code=400, detail="You cannot use your own guardian code.")
+
+    existing = (
+        _links()
+        .where("ownerUid", "==", code_data["ownerUid"])
+        .where("guardianUid", "==", uid)
+        .get()
+    )
+    for doc in existing:
+        status = doc.to_dict().get("status")
+        if status in ("pending", "approved"):
+            return {"ok": True, "status": status, "already_existed": True}
+
+    guardian_user = get_auth().get_user(uid)
+    link_ref = _links().document()
+    link_ref.set(
+        {
+            "ownerUid": code_data["ownerUid"],
+            "ownerName": code_data.get("ownerName", ""),
+            "guardianUid": uid,
+            "guardianEmail": guardian_user.email or "",
+            "status": "pending",
+            "source": "code",
+            "createdAt": fa_firestore.SERVER_TIMESTAMP,
+        }
+    )
+    code_ref.update(
+        {
+            "status": "used",
+            "redeemedBy": uid,
+            "redeemedAt": fa_firestore.SERVER_TIMESTAMP,
+        }
+    )
+    return {"ok": True, "status": "pending", "link_id": link_ref.id}
+
+
 # ── Owner: see who they've invited ───────────────────────────────────────
 @router.get("/my-invites")
 async def my_invites(uid: str = Depends(get_current_uid)):
     docs = _links().where("ownerUid", "==", uid).get()
     return [{"id": d.id, **d.to_dict()} for d in docs]
+
+
+@router.delete("/{link_id}")
+async def revoke_guardian(link_id: str, uid: str = Depends(get_current_uid)):
+    doc_ref = _links().document(link_id)
+    doc = doc_ref.get()
+    if not doc.exists or doc.to_dict().get("ownerUid") != uid:
+        raise HTTPException(status_code=404, detail="Guardian link not found.")
+    doc_ref.update({"status": "revoked", "revokedAt": fa_firestore.SERVER_TIMESTAMP})
+    return {"ok": True, "status": "revoked"}
 
 
 # ── Guardian: see pending invites addressed to them ──────────────────────
